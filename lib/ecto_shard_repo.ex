@@ -48,10 +48,67 @@ defmodule EctoShardRepo do
       @shard_function function
       @shard_key_optname :shard_for
 
-      def all(queryable, opts \\ []) do
-        all_shard_repos()
+      #
+      # all
+      #
+
+      @doc """
+      Returns all items which match the query.
+
+      ## Options
+      - `:#{@shard_key_optname}` - The key of the value to shard with, given as an `atom`.
+      If this option is passed, `all/2` tries to shard by fetching the shard value from the given queryable.
+      If the option wasn't passed, `all/2` will pass the request to all the defined shards.
+
+      ## Examples
+      ```elixir
+      User |> Repo.all()
+      User |> where(user_id: 15) |> Repo.all(shard_key: :user_id)
+      ```
+      """
+      def all(queryable, opts \\ []), do: all(queryable, opts, opts |> Enum.into(%{}))
+
+      defp all(queryable, opts, %{@shard_key_optname => key})
+           when is_list(opts) and is_atom(key) do
+        queryable
+        |> Ecto.Queryable.to_query()
+        |> fetch_shard_id_from_where_query(key)
+        |> case do
+          {:ok, nil} ->
+            do_shard_all(queryable, opts, :all)
+
+          {:ok, id_or_ids} ->
+            do_shard_all(queryable, opts, id_or_ids)
+
+          {:error, :not_found} ->
+            raise """
+            No queries found with `:#{key}` in use! \
+            Consider removing the `:#{@shard_key_optname}` option.
+            """
+
+          :error ->
+            raise "parse error at `defp all when is_list(opts)`"
+        end
+      end
+
+      defp all(queryable, opts, _) when is_list(opts),
+        do: do_shard_all(queryable, opts, :all)
+
+      defp do_shard_all(queryable, opts, :all),
+        do: all_shard_repos() |> Enum.flat_map(& &1.all(queryable, opts))
+
+      defp do_shard_all(queryable, opts, ids) when is_list(ids) do
+        ids
+        |> Enum.map(&calculate_target_repo/1)
+        |> Enum.uniq()
         |> Enum.flat_map(& &1.all(queryable, opts))
       end
+
+      defp do_shard_all(queryable, opts, id), do: calculate_target_repo(id).all(queryable, opts)
+
+      #
+      # delete
+      #
 
       def delete(struct_or_changeset, opts \\ []) do
         target_repo = fetch_target_repo!(struct_or_changeset, opts)
@@ -216,6 +273,25 @@ defmodule EctoShardRepo do
         opts
         |> Keyword.fetch!(keyname)
         |> calculate_target_repo()
+      end
+
+      @spec fetch_shard_id_from_where_query(Ecto.Query.t(), atom) ::
+              {:ok, integer | binary} | :error
+      defp fetch_shard_id_from_where_query(%Ecto.Query{} = query, sharding_key) do
+        query
+        |> Map.get(:wheres)
+        |> do_fetch_shard_id_from_where_query(sharding_key)
+      end
+
+      defp do_fetch_shard_id_from_where_query([], _), do: {:error, :not_found}
+
+      defp do_fetch_shard_id_from_where_query(wheres, sharding_key) do
+        wheres
+        |> Enum.find_value(fn
+          %{expr: {_, _, [_, %{type: {_, ^sharding_key}, value: val}]}} -> {:ok, val}
+          %{expr: {_, _, [_, %{type: {:array, {_, ^sharding_key}}, value: val}]}} -> {:ok, val}
+          _ -> :error
+        end)
       end
     end
   end
