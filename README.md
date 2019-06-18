@@ -1,21 +1,110 @@
 # EctoShardRepo
 
-**TODO: Add description**
+Enable Ecto queries to sharded databases.
+
+This is a work in progress, while also an experiment.
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `ecto_shard_repo` to your list of dependencies in `mix.exs`:
+This is not published for now, so `git clone` this and write the below in your `mix.exs`:
 
 ```elixir
-def deps do
+defp deps do
   [
-    {:ecto_shard_repo, "~> 0.1.0"}
+    ...,
+    {:ecto_shard_repo, path: "local/path/to/ecto_shard_repo"},
   ]
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/ecto_shard_repo](https://hexdocs.pm/ecto_shard_repo).
+## Usage
 
+```elixir
+## concrete Repo files
+
+defmodule ShardedRepo001 do
+  use Ecto.Repo,
+      otp_app: :testplay_datapicker,
+      adapter: Ecto.Adapters.MyXQL
+end
+
+defmodule ShardedRepo002 do
+  use Ecto.Repo,
+      otp_app: :testplay_datapicker,
+      adapter: Ecto.Adapters.Postgres
+end
+
+## config.exs
+
+config :your_app, ShardedRepo001,
+  database: "sharded_repo_001_development",
+  username: "...",
+  password: "...",
+  hostname: "localhost",
+  pool_size: 10
+
+config :your_app, ShardedRepo002,
+  database: "sharded_repo_002_development",
+  username: "...",
+  password: "...",
+  hostname: "localhost",
+  pool_size: 10
+
+## abstract Repo file
+
+defmodule MyRepo do
+  @shards [
+    ShardedRepo001,
+    ShardedRepo002,
+  ]
+
+  use EctoShardedRepo,
+      shard_repos: @shards,
+      shard_function: &__MODULE__.shard_function/1
+
+  def shard_function(key) do
+    rem(key, Enum.count(@shards))
+  end
+end
+```
+
+Then you can use like:
+
+```elixir
+## defining :shard_key will make selective access work
+User
+|> where([u], u.id in [1, 3, 5, 7])
+|> MyRepo.all(shard_key: :id)
+
+"""
+12:11:28.599 [debug] QUERY OK source="users" db=1.7ms decode=1.6ms queue=10.5ms
+SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7)) []
+[
+  %Schema.UserChar{
+   __meta__: #Ecto.Schema.Metadata<:loaded, "users">,
+    id: 1,
+    name: "Tom"
+  },
+  ...
+"""
+
+## if you don't, it will simply pass the query to all shards.
+User
+|> where([u], u.id in [1, 3, 5, 7])
+|> MyRepo.all()
+
+"""
+12:11:28.599 [debug] QUERY OK source="users" db=1.7ms decode=1.6ms queue=10.5ms
+SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7)) []
+
+12:11:28.601 [debug] QUERY OK source="users" db=1.7ms decode=1.6ms queue=1.0ms
+SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7)) []
+[
+  %Schema.UserChar{
+   __meta__: #Ecto.Schema.Metadata<:loaded, "users">,
+    id: 1,
+    name: "Tom"
+  },
+  ...
+"""
+```
