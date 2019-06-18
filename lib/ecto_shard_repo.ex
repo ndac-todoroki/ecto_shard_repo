@@ -276,7 +276,7 @@ defmodule EctoShardRepo do
       end
 
       @spec fetch_shard_id_from_where_query(Ecto.Query.t(), atom) ::
-              {:ok, integer | binary} | :error
+              {:ok, integer | binary | nil | list} | {:error, :not_found} | :error
       defp fetch_shard_id_from_where_query(%Ecto.Query{} = query, sharding_key) do
         query
         |> Map.get(:wheres)
