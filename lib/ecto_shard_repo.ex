@@ -75,10 +75,10 @@ defmodule EctoShardRepo do
         |> fetch_shard_id_from_where_query(key)
         |> case do
           {:ok, nil} ->
-            do_shard_all(queryable, opts, :all)
+            do_all(queryable, opts, :all)
 
           {:ok, id_or_ids} ->
-            do_shard_all(queryable, opts, id_or_ids)
+            do_all(queryable, opts, id_or_ids)
 
           {:error, :not_found} ->
             raise """
@@ -92,19 +92,19 @@ defmodule EctoShardRepo do
       end
 
       defp all(queryable, opts, _) when is_list(opts),
-        do: do_shard_all(queryable, opts, :all)
+        do: do_all(queryable, opts, :all)
 
-      defp do_shard_all(queryable, opts, :all),
+      defp do_all(queryable, opts, :all),
         do: all_shard_repos() |> Enum.flat_map(& &1.all(queryable, opts))
 
-      defp do_shard_all(queryable, opts, ids) when is_list(ids) do
+      defp do_all(queryable, opts, ids) when is_list(ids) do
         ids
         |> Enum.map(&calculate_target_repo/1)
         |> Enum.uniq()
         |> Enum.flat_map(& &1.all(queryable, opts))
       end
 
-      defp do_shard_all(queryable, opts, id), do: calculate_target_repo(id).all(queryable, opts)
+      defp do_all(queryable, opts, id), do: calculate_target_repo(id).all(queryable, opts)
 
       #
       # delete
