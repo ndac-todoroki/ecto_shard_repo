@@ -109,6 +109,7 @@ SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7
 """
 ```
 
+_note: Repo selection by passing `:shard_key` to the opts list might be removed. See issue #2_
 
 ### Non Round-Robbin databases
 You can use snowflake ids or any other uuids with `EctoShardRepo`.
