@@ -80,7 +80,7 @@ User
 12:11:28.599 [debug] QUERY OK source="users" db=1.7ms decode=1.6ms queue=10.5ms
 SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7)) []
 [
-  %Schema.UserChar{
+  %Schema.User{
    __meta__: #Ecto.Schema.Metadata<:loaded, "users">,
     id: 1,
     name: "Tom"
@@ -100,7 +100,7 @@ SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7
 12:11:28.601 [debug] QUERY OK source="users" db=1.7ms decode=1.6ms queue=1.0ms
 SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7)) []
 [
-  %Schema.UserChar{
+  %Schema.User{
    __meta__: #Ecto.Schema.Metadata<:loaded, "users">,
     id: 1,
     name: "Tom"
@@ -108,3 +108,5 @@ SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7
   ...
 """
 ```
+
+
