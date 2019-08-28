@@ -113,7 +113,7 @@ _note: Repo selection by passing `:shard_key` to the opts list might be removed.
 
 ### Non Round-Robbin databases
 You can use snowflake ids or any other uuids with `EctoShardRepo`.
-The abstract Repo module would be like:
+The abstract Repo module would be like: about 
 
 ```elixir
 ## abstract Repo file
@@ -139,3 +139,32 @@ end
 ```
 
 This way it won't be a mess when you add new databases and `Repo`s to your shard group, because you can edit the function to keep old uuids not to point to the new `Repo`s.
+
+## Cross-Repo Transactions
+
+`EctoShardingRepo` uses message based transactions in certain queries, such as `delete_all/3`.
+This is done by the following instructions:
+
+1. Open `Ecto.Repo.transaction/3` in all concrete `Repo`s which were called, and makes
+2. Make them `send` (in means of process messaging) `:ok` or `:error` according to its operations success inside the transaction
+3. The caller (`EctoShardRepo`) waits for all children to send back messages
+4. `case` all returned message were :ok `do`  
+     true -> send :success to all children  
+     false -> send :rollback to all children  
+   `end`
+5. Children waits for incoming messages, and simply quits on `:success`, or raise and `rollback` on `:rollback`.
+6. The caller aggregates all the results and returns it
+
+This way,
+- Instructions/Operations could rollback if any of them fail in any of the shard databases.
+- The entire transaction/operation will take the same time length as the slowest database run.
+- (I don't see any benefits, but) multiple database adaptors could be used together (MyXQL, Postgres, etc. for sharding same types of data)
+
+Cons about this method is
+- The message size could be huge
+  - message from children contains results of the query run
+  - huge messages could be a bottleneck?
+  - multiple message could be a bottleneck?
+- All databases will be locked until the slowest query finishes
+
+If there are any other points (Pros/Cons), please comment freely on a issue.
