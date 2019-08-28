@@ -89,7 +89,7 @@ defmodule EctoShardRepo do
   alias Decimal, as: D
 
   defmacro __using__(opts) do
-    quote bind_quoted: [opts: opts] do
+    quote location: :keep, bind_quoted: [opts: opts] do
       @behaviour Ecto.Repo
 
       {repos_map, function} = ShardRepoHelper.compile_config(opts)
