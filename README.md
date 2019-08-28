@@ -4,6 +4,23 @@ Enable Ecto queries to sharded databases.
 
 This is a work in progress, while also an experiment.
 
+## Why another library for sharding?
+
+There are several libraries that do sharding with `Ecto`, including ones not maintained actively.
+Other libraries place the "sharding key" and/or "database group name" information in/alongside with `Ecto.Schema`.
+In my point of view, `Ecto.Schema` is for data parsing/encoding, and not a place to store information about which database to use. This kind of information should be at the `Ecto.Repo` side.
+
+In this library, you can create an abstract `Ecto.Repo` on top of multiple other `Repo`s, which should represent a database shard. You pass the "sharding key" as an option to functions of calbbacks of `Ecto.Repo`. It goes like this:
+
+```elixir
+%User{}
+|> User.changeset(%{id: 1, age: 20, email: "mary@example.com"})
+|> MyRepo.insert!(shard_key: :id)
+```
+
+Of course, ids could be auto-generated in the `User` module, with any ways you prefer.
+This way it keeps all `Ecto` aspects as-is, and just adds database sharding functions on top of it.
+
 ## Installation
 
 This is not published for now, so `git clone` this and write the below in your `mix.exs`:
