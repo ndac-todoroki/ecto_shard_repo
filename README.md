@@ -110,3 +110,31 @@ SELECT u0.`id`, u0.`id`, u0.`name` FROM `users` AS u0 WHERE (u0.`id` IN (1,3,5,7
 ```
 
 
+### Non Round-Robbin databases
+You can use snowflake ids or any other uuids with `EctoShardRepo`.
+The abstract Repo module would be like:
+
+```elixir
+## abstract Repo file
+
+defmodule MyRepo do
+  # use key-value pairs for :shard_repos
+  @shards [
+    amaryllis: ShardedRepo001,
+    buttercup: ShardedRepo002,
+    ...
+  ]
+  @typep repo_key :: :amaryllis || :buttercup || ...
+
+  use EctoShardedRepo,
+      shard_repos: @shards,
+      shard_function: &__MODULE__.resolve_repo_key/1
+
+  @spec resolve_repo_key(uuid :: String.t) :: repo_key()
+  def shard_function(uuid) do
+    Snowflake.resolve_key_from_uuid(uuid)
+  end
+end
+```
+
+This way it won't be a mess when you add new databases and `Repo`s to your shard group, because you can edit the function to keep old uuids not to point to the new `Repo`s.
